@@ -1,37 +1,49 @@
 /*
 Level.js
 
-A Level represents ONE maze grid loaded from levels.json. 
+Extended Level class for a tile-based maze game.
 
-Tile legend (from your original example): 
+Tile legend:
 0 = floor
 1 = wall
 2 = start
-3 = goal
+3 = goal (optional, not used for progression now)
+
+4 = point (1 point)
+5 = point (2 points)
+6 = point (3 points)
+
+7 = one-way tile (right only)
+8 = disappearing floor
+9 = gate (closed)
+10 = switch (toggles gates)
 
 Responsibilities:
 - Store the grid
 - Find the start tile
-- Provide collision/meaning queries (isWall, isGoal, inBounds)
-- Draw the tiles (including a goal highlight)
+- Track points remaining
+- Handle tile meaning queries
+- Handle gate toggling + tile removal
+- Draw all tiles
 */
 
 class Level {
   constructor(grid, tileSize) {
-    // Store the tile grid and tile size (pixels per tile).
     this.grid = grid;
     this.ts = tileSize;
 
-    // Start position in grid coordinates (row/col).
-    // We compute this by scanning for tile value 2. 
     this.start = this.findStart();
 
-    // Optional: if you don't want the start tile to remain "special"
-    // after you’ve used it to spawn the player, you can normalize it
-    // to floor so it draws like floor and behaves like floor. 
+    // Normalize start tile to floor
     if (this.start) {
       this.grid[this.start.r][this.start.c] = 0;
     }
+
+    // Count points at load time
+    this.remainingPoints = this.countPoints();
+
+    // Gate state
+    this.gatesOpen = false;
   }
 
   // ----- Size helpers -----
@@ -52,29 +64,83 @@ class Level {
     return this.rows() * this.ts;
   }
 
-  // ----- Semantic helpers -----
+  // ----- Bounds + tile helpers -----
 
   inBounds(r, c) {
     return r >= 0 && c >= 0 && r < this.rows() && c < this.cols();
   }
 
   tileAt(r, c) {
-    // Caller should check inBounds first.
     return this.grid[r][c];
   }
+
+  setTile(r, c, v) {
+    this.grid[r][c] = v;
+  }
+
+  // ----- Tile type checks -----
 
   isWall(r, c) {
     return this.tileAt(r, c) === 1;
   }
 
-  isGoal(r, c) {
-    return this.tileAt(r, c) === 3;
+  isGate(r, c) {
+    return this.tileAt(r, c) === 9 && !this.gatesOpen;
+  }
+
+  isSwitch(r, c) {
+    return this.tileAt(r, c) === 10;
+  }
+
+  isOneWay(r, c) {
+    return this.tileAt(r, c) === 7;
+  }
+
+  isDisappearing(r, c) {
+    return this.tileAt(r, c) === 8;
+  }
+
+  isPoint(r, c) {
+    const v = this.tileAt(r, c);
+    return v === 4 || v === 5 || v === 6;
+  }
+
+  pointValue(r, c) {
+    const v = this.tileAt(r, c);
+    if (v === 4) return 1;
+    if (v === 5) return 2;
+    if (v === 6) return 3;
+    return 0;
+  }
+
+  // ----- Points -----
+
+  countPoints() {
+    let count = 0;
+    for (let r = 0; r < this.rows(); r++) {
+      for (let c = 0; c < this.cols(); c++) {
+        if (this.isPoint(r, c)) count++;
+      }
+    }
+    return count;
+  }
+
+  collectPoint(r, c) {
+    if (this.isPoint(r, c)) {
+      this.remainingPoints--;
+      this.setTile(r, c, 0);
+    }
+  }
+
+  // ----- Gates -----
+
+  toggleGates() {
+    this.gatesOpen = !this.gatesOpen;
   }
 
   // ----- Start-finding -----
 
   findStart() {
-    // Scan entire grid to locate the tile value 2 (start). 
     for (let r = 0; r < this.rows(); r++) {
       for (let c = 0; c < this.cols(); c++) {
         if (this.grid[r][c] === 2) {
@@ -82,42 +148,65 @@ class Level {
         }
       }
     }
-
-    // If a level forgets to include a start tile, return null.
-    // (Then the game can choose a default spawn.)
     return null;
   }
 
   // ----- Drawing -----
 
   draw() {
-    /*
-    Draw each tile as a rectangle.
-
-    Visual rules (matches your original logic): 
-    - Walls (1): dark teal
-    - Everything else: light floor
-    - Goal tile (3): add a highlighted inset rectangle
-    */
     for (let r = 0; r < this.rows(); r++) {
       for (let c = 0; c < this.cols(); c++) {
         const v = this.grid[r][c];
 
-        // Base tile fill
-        if (v === 1) fill(30, 50, 60);
-        else fill(232);
+        // Base tile
+        if (v === 1) fill(30, 50, 60);            // wall
+        else if (v === 9 && !this.gatesOpen) fill(120, 60, 60); // closed gate
+        else fill(230);                           // floor
 
         rect(c * this.ts, r * this.ts, this.ts, this.ts);
 
-        // Goal highlight overlay (only on tile 3). 
-        if (v === 3) {
-          noStroke();
-          fill(255, 200, 120, 200);
+        // Points
+        if (v === 4 || v === 5 || v === 6) {
+          fill(255, 200 - v * 20, 80);
+          circle(
+            c * this.ts + this.ts / 2,
+            r * this.ts + this.ts / 2,
+            this.ts * (0.3 + 0.1 * v)
+          );
+        }
+
+        // One-way arrow (right)
+        if (v === 7) {
+          fill(80, 120, 200);
+          triangle(
+            c * this.ts + 8,
+            r * this.ts + 8,
+            c * this.ts + 8,
+            r * this.ts + this.ts - 8,
+            c * this.ts + this.ts - 6,
+            r * this.ts + this.ts / 2
+          );
+        }
+
+        // Disappearing floor
+        if (v === 8) {
+          fill(180, 180, 180);
           rect(
-            c * this.ts + 4,
-            r * this.ts + 4,
-            this.ts - 8,
-            this.ts - 8,
+            c * this.ts + 6,
+            r * this.ts + 6,
+            this.ts - 12,
+            this.ts - 12
+          );
+        }
+
+        // Switch
+        if (v === 10) {
+          fill(200, 120, 200);
+          rect(
+            c * this.ts + 6,
+            r * this.ts + 6,
+            this.ts - 12,
+            this.ts - 12,
             6
           );
         }

@@ -1,79 +1,114 @@
 /*
-Week 4 — Example 4: Playable Maze (JSON + Level class + Player class)
+Week 4 — Playable Maze (JS Arrays + Levels + Player)
 Course: GBDA302
-Instructors: Dr. Karen Cochrane and David Han
-Date: Feb. 5, 2026
 
-This is the "orchestrator" file:
-- Loads JSON levels (preload)
-- Builds Level objects
-- Creates/positions the Player
-- Handles input + level switching
-
-It is intentionally light on "details" because those are moved into:
-- Level.js (grid + drawing + tile meaning)
-- Player.js (position + movement rules)
-
-Based on the playable maze structure from Example 3
+Controls:
+- WASD / Arrow keys → Move
+- R → Restart current level
+- Shift + R → Restart entire game
 */
 
 const TS = 32;
 
-// Raw JSON data (from levels.json).
-let levelsData;
+// ------------------------------
+// LEVEL DATA (JS ARRAYS)
+// ------------------------------
+const LEVEL_DATA = [
+  // ---------- LEVEL 1 ----------
+  [
+    [1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,2,0,4,0,1,0,5,0,0,6,1],
+    [1,0,1,1,0,1,0,1,1,0,0,1],
+    [1,0,0,7,0,0,0,0,1,0,1,1],
+    [1,1,0,1,1,1,0,1,1,0,0,1],
+    [1,0,0,0,10,0,0,9,0,0,0,1],
+    [1,0,1,1,1,1,0,1,1,1,0,1],
+    [1,0,0,0,8,0,0,0,5,0,4,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1],
+  ],
 
-// Array of Level instances.
+  // ---------- LEVEL 2 (HARDER) ----------
+  [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,2,0,4,0,1,0,5,0,0,6,0,0,1],
+    [1,0,1,1,0,1,0,1,1,0,1,1,0,1],
+    [1,0,0,7,0,0,8,0,1,0,0,0,0,1],
+    [1,1,0,1,1,1,0,1,1,1,1,0,1,1],
+    [1,0,0,0,10,0,0,9,0,0,0,0,0,1],
+    [1,0,1,1,1,1,0,1,1,1,1,1,0,1],
+    [1,0,0,0,8,0,0,0,5,0,4,0,6,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  ],
+];
+
+// ------------------------------
+// GAME STATE
+// ------------------------------
 let levels = [];
-
-// Current level index.
-let li = 0;
-
-// Player instance (tile-based).
+let currentLevelIndex = 0;
 let player;
+let score = 0;
 
-function preload() {
-  // Ensure level data is ready before setup runs.
-  levelsData = loadJSON("levels.json");
-}
-
+// ------------------------------
+// SETUP
+// ------------------------------
 function setup() {
-  /*
-  Convert raw JSON grids into Level objects.
-  levelsData.levels is an array of 2D arrays. 
-  */
-  levels = levelsData.levels.map((grid) => new Level(copyGrid(grid), TS));
-
-  // Create a player.
+  levels = LEVEL_DATA.map(grid => new Level(copyGrid(grid), TS));
   player = new Player(TS);
 
-  // Load the first level (sets player start + canvas size).
   loadLevel(0);
 
   noStroke();
   textFont("sans-serif");
-  textSize(14);
 }
 
+// ------------------------------
+// DRAW LOOP
+// ------------------------------
 function draw() {
   background(240);
 
-  // Draw current level then player on top.
-  levels[li].draw();
+  levels[currentLevelIndex].draw();
   player.draw();
 
   drawHUD();
 }
 
+// ------------------------------
+// HUD
+// ------------------------------
 function drawHUD() {
-  // HUD matches your original idea: show level count and controls.
+  const level = levels[currentLevelIndex];
+
   fill(0);
-  text(`Level ${li + 1}/${levels.length} — WASD/Arrows to move`, 10, 16);
+  rect(0, 0, width, 32);
+
+  fill(255);
+  textSize(14);
+  textAlign(LEFT, CENTER);
+
+  text(
+    `Level ${currentLevelIndex + 1}/${levels.length}   Score: ${score}   Remaining: ${level.remainingPoints}`,
+    10,
+    16
+  );
 }
 
+// ------------------------------
+// INPUT
+// ------------------------------
 function keyPressed() {
-  /*
-  Convert key presses into a movement direction. (WASD + arrows)
-  */
+
+  // ---- Restart controls ----
+  if (key === "r" || key === "R") {
+    if (keyIsDown(SHIFT)) {
+      restartGame();    // Shift + R → full reset
+    } else {
+      restartLevel();   // R → restart level
+    }
+    return;
+  }
+
   let dr = 0;
   let dc = 0;
 
@@ -81,53 +116,69 @@ function keyPressed() {
   else if (keyCode === RIGHT_ARROW || key === "d" || key === "D") dc = 1;
   else if (keyCode === UP_ARROW || key === "w" || key === "W") dr = -1;
   else if (keyCode === DOWN_ARROW || key === "s" || key === "S") dr = 1;
-  else return; // not a movement key
+  else return;
 
-  // Try to move. If blocked, nothing happens.
-  const moved = player.tryMove(levels[li], dr, dc);
+  const level = levels[currentLevelIndex];
+  const prevPoints = level.remainingPoints;
 
-  // If the player moved onto a goal tile, advance levels.
-  if (moved && levels[li].isGoal(player.r, player.c)) {
+  const moved = player.tryMove(level, dr, dc);
+
+  // Update score if a point was collected
+  if (moved && level.remainingPoints < prevPoints) {
+    score += 1;
+  }
+
+  // Advance only when ALL points collected
+  if (level.remainingPoints === 0) {
     nextLevel();
   }
 }
 
-// ----- Level switching -----
+// ------------------------------
+// LEVEL CONTROL
+// ------------------------------
+function loadLevel(index) {
+  currentLevelIndex = index;
+  const level = levels[currentLevelIndex];
 
-function loadLevel(idx) {
-  li = idx;
-
-  const level = levels[li];
-
-  // Place player at the level's start tile (2), if present.
   if (level.start) {
     player.setCell(level.start.r, level.start.c);
   } else {
-    // Fallback spawn: top-left-ish (but inside bounds).
     player.setCell(1, 1);
   }
 
-  // Ensure the canvas matches this level’s dimensions.
   resizeCanvas(level.pixelWidth(), level.pixelHeight());
 }
 
 function nextLevel() {
-  // Wrap around when we reach the last level.
-  const next = (li + 1) % levels.length;
-  loadLevel(next);
+  if (currentLevelIndex < levels.length - 1) {
+    loadLevel(currentLevelIndex + 1);
+  } else {
+    // Game completed
+    noLoop();
+    console.log("All levels complete!");
+  }
 }
 
-// ----- Utility -----
+// ------------------------------
+// RESTART HELPERS
+// ------------------------------
+function restartLevel() {
+  const grid = LEVEL_DATA[currentLevelIndex];
+  levels[currentLevelIndex] = new Level(copyGrid(grid), TS);
+  loadLevel(currentLevelIndex);
+}
 
+function restartGame() {
+  levels = LEVEL_DATA.map(grid => new Level(copyGrid(grid), TS));
+  score = 0;
+  loadLevel(0);
+  loop();
+}
+
+// ------------------------------
+// UTILITY
+// ------------------------------
 function copyGrid(grid) {
-  /*
-  Make a deep-ish copy of a 2D array:
-  - new outer array
-  - each row becomes a new array
-
-  Why copy?
-  - Because Level constructor may normalize tiles (e.g., replace 2 with 0)
-  - And we don’t want to accidentally mutate the raw JSON data object. 
-  */
-  return grid.map((row) => row.slice());
+  return grid.map(row => row.slice());
 }

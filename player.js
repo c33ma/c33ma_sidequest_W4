@@ -1,37 +1,38 @@
 /*
 Player.js
 
-A Player stores the avatar position in grid coordinates (row/col)
-and knows how to:
-- draw itself
-- attempt a move (tile-by-tile) with collision rules
+Extended Player class.
 
-The Player does NOT:
-- load JSON
-- switch levels
-Those are "game orchestration" responsibilities that belong in sketch.js. 
+Responsibilities:
+- Store player position
+- Draw the avatar
+- Attempt grid-based movement
+- Interact with tiles (points, switches, disappearing floors)
+
+Does NOT:
+- Track score totals
+- Switch levels
+Those stay in sketch.js.
 */
 
 class Player {
   constructor(tileSize) {
     this.ts = tileSize;
 
-    // Current grid position (row/col).
+    // Grid position
     this.r = 0;
     this.c = 0;
 
-    // Movement throttle (so a key press doesn't move 60 tiles per second).
+    // Movement throttle
     this.movedAt = 0;
     this.moveDelay = 90; // ms
   }
 
-  // Place the player at a specific grid location (e.g., the level's start).
   setCell(r, c) {
     this.r = r;
     this.c = c;
   }
 
-  // Convert grid coords to pixel center (for drawing a circle).
   pixelX() {
     return this.c * this.ts + this.ts / 2;
   }
@@ -41,40 +42,58 @@ class Player {
   }
 
   draw() {
-    // Same "simple high-contrast avatar" idea as your original. 
     fill(20, 120, 255);
     circle(this.pixelX(), this.pixelY(), this.ts * 0.6);
   }
 
   /*
-  Try to move by (dr, dc) tiles.
+  Attempt to move by (dr, dc).
 
-  Inputs:
-  - level: a Level instance, used for bounds + wall collision + goal detection
-  - dr/dc: desired movement step, typically -1,0,1
-
-  Returns:
-  - true if the move happened
-  - false if blocked or throttled
+  Returns true if movement happened.
   */
   tryMove(level, dr, dc) {
-    // Throttle discrete movement using millis()
     const now = millis();
     if (now - this.movedAt < this.moveDelay) return false;
 
     const nr = this.r + dr;
     const nc = this.c + dc;
 
-    // Prevent walking off the map.
+    // Bounds check
     if (!level.inBounds(nr, nc)) return false;
 
-    // Prevent walking into walls.
+    // Wall collision
     if (level.isWall(nr, nc)) return false;
 
-    // Movement is allowed, so commit.
+    // Gate collision (if closed)
+    if (level.isGate(nr, nc)) return false;
+
+    // One-way tile logic (right-only)
+    if (level.isOneWay(this.r, this.c) && dc !== 1) return false;
+
+    // ---- Movement allowed ----
+    const prevR = this.r;
+    const prevC = this.c;
+
     this.r = nr;
     this.c = nc;
     this.movedAt = now;
+
+    // ---- Tile interactions AFTER move ----
+
+    // Collect points
+    if (level.isPoint(this.r, this.c)) {
+      level.collectPoint(this.r, this.c);
+    }
+
+    // Activate switch
+    if (level.isSwitch(this.r, this.c)) {
+      level.toggleGates();
+    }
+
+    // Disappearing floor: remove the tile you stepped off
+    if (level.isDisappearing(prevR, prevC)) {
+      level.setTile(prevR, prevC, 0);
+    }
 
     return true;
   }
