@@ -7,14 +7,15 @@ This project is a tile-based maze game where the player navigates through multip
 
 ---
 ## Interaction Instructions
-Press Enter to start the game.
+- Press Enter to start the game.
 
-Use WASD or arrow keys to move the player.
+- Use WASD or arrow keys to move the player.
 
-Collect all points in a level to advance to the next one.
+- Collect all points in a level to advance to the next one.
 
-Purple tiles toggle gates, blue arrows enforce one-way movement, and grey tiles restart the current level.
+- Purple tiles toggle gates, blue arrows enforce one-way movement, and grey tiles restart the current level.
 
-After completing all levels, press R to restart from Level 1.
+- After completing all levels, press R to restart from Level 1.
+
 ---
 
