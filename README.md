@@ -1,45 +1,20 @@
 ## Project Title
-
-GBDA302 Week 4 Example 4: layable Maze (JSON + Level class + Player class)
-
----
-
-## Authors
-
-Karen Cochrane and David Han
+Side Quest Week 4: Puzzle Maze
 
 ---
-
 ## Description
-
-Based on example 3, creates and positions the player using preloads and loadJSON files.
-
----
-
-## Learning Goals
-
-Learning Goals:
-
-- Loads JSON levels (preload)
-- Builds Level objects
-- Creates/positions the Player
-- Handles input + level switching
-
-It is intentionally light on "details" because those are moved into:
-
-- Level.js (grid + drawing + tile meaning)
-- Player.js (position + movement rules)
+This project is a tile-based maze game where the player navigates through multiple levels to collect all points and advance. The player moves through a grid filled with walls, one-way paths, gates, switches, and fail tiles that reset the level. The design was inspired by classic maze games like Pac-Man, but reimagined as a puzzle experience that focuses on spatial logic and decision-making rather than enemies or chasing mechanics.
 
 ---
+## Interaction Instructions
+Press Enter to start the game.
 
-## Assets
+Use WASD or arrow keys to move the player.
 
-N/A
+Collect all points in a level to advance to the next one.
 
+Purple tiles toggle gates, blue arrows enforce one-way movement, and grey tiles restart the current level.
+
+After completing all levels, press R to restart from Level 1.
 ---
 
-## GenAI
-
-The code was written by Dr. Karen Cochrane and David Han but they used GenAI to write the comments.
-
----
