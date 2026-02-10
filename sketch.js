@@ -1,20 +1,14 @@
 /*
 Week 4 — Playable Maze (JS Arrays + Levels + Player)
 Course: GBDA302
-
-Controls:
-- WASD / Arrow keys → Move
-- R → Restart current level
-- Shift + R → Restart entire game
 */
 
 const TS = 32;
 
 // ------------------------------
-// LEVEL DATA (JS ARRAYS)
+// LEVEL DATA
 // ------------------------------
 const LEVEL_DATA = [
-  // ---------- LEVEL 1 ----------
   [
     [1,1,1,1,1,1,1,1,1,1,1,1],
     [1,2,0,4,0,1,0,5,0,0,6,1],
@@ -26,8 +20,6 @@ const LEVEL_DATA = [
     [1,0,0,0,8,0,0,0,5,0,4,1],
     [1,1,1,1,1,1,1,1,1,1,1,1],
   ],
-
-  // ---------- LEVEL 2 (HARDER) ----------
   [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     [1,2,0,4,0,1,0,5,0,0,6,0,0,1],
@@ -48,30 +40,27 @@ let levels = [];
 let currentLevelIndex = 0;
 let player;
 let score = 0;
+let gameComplete = false;
 
 // ------------------------------
 // SETUP
 // ------------------------------
 function setup() {
-  levels = LEVEL_DATA.map(grid => new Level(copyGrid(grid), TS));
-  player = new Player(TS);
-
-  loadLevel(0);
-
+  resetGame();
   noStroke();
   textFont("sans-serif");
 }
 
 // ------------------------------
-// DRAW LOOP
+// DRAW
 // ------------------------------
 function draw() {
   background(240);
-
   levels[currentLevelIndex].draw();
   player.draw();
-
   drawHUD();
+
+  if (gameComplete) drawGameComplete();
 }
 
 // ------------------------------
@@ -95,19 +84,30 @@ function drawHUD() {
 }
 
 // ------------------------------
+// GAME COMPLETE
+// ------------------------------
+function drawGameComplete() {
+  fill(0, 180);
+  rect(0, 0, width, height);
+
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(28);
+  text("All Levels Complete!", width / 2, height / 2 - 20);
+  textSize(16);
+  text("Press R to restart", width / 2, height / 2 + 20);
+}
+
+// ------------------------------
 // INPUT
 // ------------------------------
 function keyPressed() {
-
-  // ---- Restart controls ----
-  if (key === "r" || key === "R") {
-    if (keyIsDown(SHIFT)) {
-      restartGame();    // Shift + R → full reset
-    } else {
-      restartLevel();   // R → restart level
-    }
+  if (gameComplete && (key === "r" || key === "R")) {
+    resetGame();
     return;
   }
+
+  if (gameComplete) return;
 
   let dr = 0;
   let dc = 0;
@@ -123,12 +123,10 @@ function keyPressed() {
 
   const moved = player.tryMove(level, dr, dc);
 
-  // Update score if a point was collected
   if (moved && level.remainingPoints < prevPoints) {
     score += 1;
   }
 
-  // Advance only when ALL points collected
   if (level.remainingPoints === 0) {
     nextLevel();
   }
@@ -141,12 +139,7 @@ function loadLevel(index) {
   currentLevelIndex = index;
   const level = levels[currentLevelIndex];
 
-  if (level.start) {
-    player.setCell(level.start.r, level.start.c);
-  } else {
-    player.setCell(1, 1);
-  }
-
+  player.setCell(level.start ? level.start.r : 1, level.start ? level.start.c : 1);
   resizeCanvas(level.pixelWidth(), level.pixelHeight());
 }
 
@@ -154,24 +147,25 @@ function nextLevel() {
   if (currentLevelIndex < levels.length - 1) {
     loadLevel(currentLevelIndex + 1);
   } else {
-    // Game completed
-    noLoop();
-    console.log("All levels complete!");
+    gameComplete = true;
   }
 }
 
-// ------------------------------
-// RESTART HELPERS
-// ------------------------------
+// 🔁 Restart ONLY current level
 function restartLevel() {
-  const grid = LEVEL_DATA[currentLevelIndex];
-  levels[currentLevelIndex] = new Level(copyGrid(grid), TS);
+  levels[currentLevelIndex] = new Level(
+    copyGrid(LEVEL_DATA[currentLevelIndex]),
+    TS
+  );
   loadLevel(currentLevelIndex);
 }
 
-function restartGame() {
+// 🔁 Restart entire game
+function resetGame() {
   levels = LEVEL_DATA.map(grid => new Level(copyGrid(grid), TS));
+  player = new Player(TS);
   score = 0;
+  gameComplete = false;
   loadLevel(0);
   loop();
 }
@@ -182,3 +176,4 @@ function restartGame() {
 function copyGrid(grid) {
   return grid.map(row => row.slice());
 }
+ 

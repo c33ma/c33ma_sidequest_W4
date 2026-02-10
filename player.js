@@ -25,7 +25,7 @@ class Player {
 
     // Movement throttle
     this.movedAt = 0;
-    this.moveDelay = 90; // ms
+    this.moveDelay = 90;
   }
 
   setCell(r, c) {
@@ -46,11 +46,6 @@ class Player {
     circle(this.pixelX(), this.pixelY(), this.ts * 0.6);
   }
 
-  /*
-  Attempt to move by (dr, dc).
-
-  Returns true if movement happened.
-  */
   tryMove(level, dr, dc) {
     const now = millis();
     if (now - this.movedAt < this.moveDelay) return false;
@@ -58,19 +53,15 @@ class Player {
     const nr = this.r + dr;
     const nc = this.c + dc;
 
-    // Bounds check
+    // Bounds + collisions
     if (!level.inBounds(nr, nc)) return false;
-
-    // Wall collision
     if (level.isWall(nr, nc)) return false;
-
-    // Gate collision (if closed)
     if (level.isGate(nr, nc)) return false;
 
-    // One-way tile logic (right-only)
+    // One-way tile (right only)
     if (level.isOneWay(this.r, this.c) && dc !== 1) return false;
 
-    // ---- Movement allowed ----
+    // ---- Move ----
     const prevR = this.r;
     const prevC = this.c;
 
@@ -85,12 +76,18 @@ class Player {
       level.collectPoint(this.r, this.c);
     }
 
-    // Activate switch
+    // Purple switch → toggle gates
     if (level.isSwitch(this.r, this.c)) {
       level.toggleGates();
     }
 
-    // Disappearing floor: remove the tile you stepped off
+    // Grey tile → RESTART LEVEL
+    if (level.isDisappearing(this.r, this.c)) {
+      restartLevel();
+      return true;
+    }
+
+    // Disappearing floor effect (remove tile stepped off)
     if (level.isDisappearing(prevR, prevC)) {
       level.setTile(prevR, prevC, 0);
     }
